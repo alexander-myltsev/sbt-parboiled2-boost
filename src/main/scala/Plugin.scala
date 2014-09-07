@@ -1,5 +1,6 @@
 package sbtparboiled2boost
 
+import org.apache.commons.io.FilenameUtils
 import sbt._
 
 object Plugin extends AutoPlugin {
@@ -17,7 +18,7 @@ object Plugin extends AutoPlugin {
   override val projectSettings: Seq[Setting[_]] = Seq(
     sourceDirectory in parboiledCompile <<= (sourceDirectory in Compile) / "parboiled",
 
-    target in parboiledCompile <<= (sourceManaged in Compile),
+    target in parboiledCompile <<= (sourceDirectory in Compile) / "scala",
 
     parboiledCompile <<= (streams, sourceDirectory in parboiledCompile, target in parboiledCompile) map generateFromParboiledFiles,
 
@@ -59,9 +60,11 @@ object Plugin extends AutoPlugin {
         if (parboiledFile.lastModified > target.lastModified) {
           streams.log.info("Generating '%s'" format target.getName)
           val pbFile = IO.read(parboiledFile)
-          IO.write(target, Generator.generateFromParboiledGrammar(pbFile, 22))
-        } else
+          val name = FilenameUtils.getBaseName(FilenameUtils.getBaseName(parboiledFile.getName))
+          IO.write(target, Generator.generateFromParboiledGrammar(name, pbFile))
+        } else {
           streams.log.debug("parboiled grammar '%s' older than target. Ignoring." format parboiledFile.getName)
+        }
     }
 
     mapping.map(_._2)
