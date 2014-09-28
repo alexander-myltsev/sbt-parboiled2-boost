@@ -6,7 +6,7 @@ object ParboiledParser {
   sealed trait Expr
   case class Sequence(lhs: Expr, rhs: Expr) extends Expr
   case class FirstOf(lhs: Expr, rhs: Expr) extends Expr
-  case class Rule(name: Identifier, typ: Option[Identifier], body: Expr) extends Expr
+  case class RuleExpr(name: Identifier, typ: Option[Identifier], body: Expr) extends Expr
   case class Identifier(name: String) extends Expr
   case class StringLiteral(v: String) extends Expr
   case class Capture(e: Expr) extends Expr
@@ -20,7 +20,7 @@ object ParboiledParser {
     case Identifier(name: String) => name
     case FirstOf(lhs, rhs)        => pretty(lhs) + " | " + pretty(rhs)
     case Sequence(lhs, rhs)       => pretty(lhs) + " ~ " + pretty(rhs)
-    case Rule(name, typ, body)    => "def " + pretty(name) + typ.map(x => s": ${pretty(x)}").getOrElse("") + 
+    case RuleExpr(name, typ, body)    => "def " + pretty(name) + typ.map(x => s": ${pretty(x)}").getOrElse("") + 
                                      " = rule { " + pretty(body) + " }"
     case Capture(e)               => "capture(" + pretty(e) + ")"
     case Optional(e)              => "optional(" + pretty(e) + ")"
@@ -41,7 +41,7 @@ class ParboiledParser(val input: ParserInput) extends Parser {
 
   def Expression = rule { zeroOrMore(PbRule ~ WhiteSpace) }
   
-  def PbRule = rule { Ident ~ optional(":" ~ Type) ~ "::=" ~ Body ~> Rule }
+  def PbRule = rule { Ident ~ optional(":" ~ Type) ~ "::=" ~ Body ~> RuleExpr }
   
   def Type = rule { WhiteSpace ~ capture(Alpha ~ zeroOrMore(AlphaNum | "[" | "]")) ~ WhiteSpace ~> Identifier }
   
