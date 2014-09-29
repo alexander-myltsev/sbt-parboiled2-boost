@@ -3,7 +3,7 @@ package sbtparboiled2boost
 import scala.util.{Failure, Success}
 import org.parboiled2._
 import ParboiledParser._
-import optimizers.SquashStrings
+import optimizers.{MetaRuleInject, SquashStrings}
 
 object Generator {
   def generateFromParboiledGrammar(name: String, template: String): String = {
@@ -11,7 +11,7 @@ object Generator {
 
     parser.InputLine.run() match {
       case Success(exprAst) =>
-        val treeOptimized = SquashStrings.optimize(exprAst)
+        val treeOptimized = SquashStrings.optimize(MetaRuleInject.optimize(exprAst))
 
         s"""import org.parboiled2._
           |

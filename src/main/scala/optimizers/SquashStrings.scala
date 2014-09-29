@@ -1,6 +1,6 @@
 package optimizers
 
-import sbtparboiled2boost.ParboiledParser.{Negate, Test, OneOrMore, ZeroOrMore, Optional, Capture, FirstOf, StringLiteral, Sequence, RuleExpr, Expr}
+import sbtparboiled2boost.ParboiledParser._
 
 object SquashStrings {
   def optimize(tree: Seq[Expr]): Seq[Expr] = tree.map {
@@ -9,8 +9,6 @@ object SquashStrings {
   }
 
   private def squashStrings(body: Expr): Expr = body match {
-    case Sequence(lhs: StringLiteral, rhs: StringLiteral) => StringLiteral(lhs.v + rhs.v)
-
     case s @ Sequence(lhs, rhs) =>
       val lhsN = squashStrings(lhs)
       val rhsN = squashStrings(rhs)
