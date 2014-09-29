@@ -4,7 +4,7 @@ import sbtparboiled2boost.ParboiledParser.{Negate, Test, OneOrMore, ZeroOrMore, 
 
 object SquashStrings {
   def optimize(tree: Seq[Expr]): Seq[Expr] = tree.map {
-    case RuleExpr(n, t, body) => RuleExpr(n, t, squashStrings(body))
+    case RuleExpr(n, args, t, body) => RuleExpr(n, args, t, squashStrings(body))
     case t => ???
   }
 
