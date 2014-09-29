@@ -4,8 +4,8 @@ import org.parboiled2._
 
 object ParboiledParser {
   sealed trait Expr
-  case class Sequence(lhs: Expr, rhs: Expr) extends Expr
-  case class FirstOf(lhs: Expr, rhs: Expr) extends Expr
+  case class Sequence(exps: Seq[Expr]) extends Expr
+  case class FirstOf(exps: Seq[Expr]) extends Expr
   case class RuleExpr(name: Identifier, args: Option[Seq[Identifier]], typ: Option[Identifier], body: Expr) extends Expr
   case class Identifier(name: String) extends Expr
   case class StringLiteral(v: String) extends Expr
@@ -25,8 +25,8 @@ object ParboiledParser {
         " = rule { " + pretty(body) + " }"
 
     case Identifier(name: String) => name
-    case FirstOf(lhs, rhs)        => pretty(lhs) + " | " + pretty(rhs)
-    case Sequence(lhs, rhs)       => pretty(lhs) + " ~ " + pretty(rhs)
+    case FirstOf(exps)            => exps.map(pretty).mkString(" | ")
+    case Sequence(exps)           => exps.map(pretty).mkString(" ~ ")
     case Capture(e)               => "capture(" + pretty(e) + ")"
     case Optional(e)              => "optional(" + pretty(e) + ")"
     case ZeroOrMore(e)            => "zeroOrMore(" + pretty(e) + ")"
@@ -41,7 +41,7 @@ object ParboiledParser {
 class ParboiledParser(val input: ParserInput) extends Parser {
   import ParboiledParser._
 
-  import CharPredicate.{Alpha, AlphaNum, Visible}
+  import CharPredicate.{Alpha, AlphaNum, Printable}
   
   def InputLine = rule { Expression ~ EOI }
 
@@ -51,9 +51,11 @@ class ParboiledParser(val input: ParserInput) extends Parser {
   
   def Type = rule { WhiteSpace ~ capture(Alpha ~ zeroOrMore(AlphaNum | "[" | "]")) ~ WhiteSpace ~> Identifier }
   
-  def Body: Rule1[Expr] = rule { SeqRule ~ zeroOrMore("|" ~ SeqRule ~> FirstOf) }
+  def Body: Rule1[Expr] = rule { SeqRule ~ zeroOrMore("|" ~ SeqRule) ~> (
+    (x: Expr, xs: Seq[Expr]) => if (xs.isEmpty) x else FirstOf(x +: xs)) }
   
-  def SeqRule: Rule1[Expr] = rule { SimpleExpr ~ zeroOrMore("~" ~ SimpleExpr ~> Sequence) }
+  def SeqRule: Rule1[Expr] = rule { SimpleExpr ~ zeroOrMore("~" ~ SimpleExpr) ~> (
+    (x: Expr, xs: Seq[Expr]) => if (xs.isEmpty) x else Sequence(x +: xs)) }
 
   def SimpleExpr: Rule1[Expr] = rule { RuleCall | TestRule | NegateRule | OneOrMoreRule | ZeroOrMoreRule |
                                        OptionalRule | CaptureRule | StringLiteralRule | Ident | ('(' ~ Body ~ ')') }
@@ -70,7 +72,7 @@ class ParboiledParser(val input: ParserInput) extends Parser {
   
   def OneOrMoreRule = rule { WhiteSpace ~ "oneOrMore(" ~ Body ~ ")" ~ WhiteSpace ~> OneOrMore }
   
-  def StringLiteralRule = rule { WhiteSpace ~ '"' ~ capture(zeroOrMore(Visible -- "\"")) ~ '"' ~ WhiteSpace ~> StringLiteral }
+  def StringLiteralRule = rule { WhiteSpace ~ '"' ~ capture(zeroOrMore(Printable -- "\"")) ~ '"' ~ WhiteSpace ~> StringLiteral }
   
   def TestRule = rule { WhiteSpace ~ "&(" ~ Body ~ ")" ~ WhiteSpace ~> Test }
   

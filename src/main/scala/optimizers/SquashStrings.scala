@@ -9,15 +9,14 @@ object SquashStrings {
   }
 
   private def squashStrings(body: Expr): Expr = body match {
-    case s @ Sequence(lhs, rhs) =>
-      val lhsN = squashStrings(lhs)
-      val rhsN = squashStrings(rhs)
-      (lhsN, rhsN) match {
-        case (StringLiteral(sr), StringLiteral(sl)) => StringLiteral(sr + sl)
-        case _ => s
+    case Sequence(exps) =>
+      val squashed = exps.map(squashStrings).foldRight(Seq.empty[Expr]) {
+        case (StringLiteral(s1), StringLiteral(s2) +: rest) => StringLiteral(s1 + s2) +: rest
+        case (exp, acc) => exp +: acc
       }
+      Sequence(squashed)
 
-    case FirstOf(lhs, rhs)        => FirstOf(squashStrings(lhs), squashStrings(rhs))
+    case FirstOf(exps)            => FirstOf(exps.map(squashStrings))
     case Capture(e)               => Capture(squashStrings(e))
     case Optional(e)              => Optional(squashStrings(e))
     case ZeroOrMore(e)            => ZeroOrMore(squashStrings(e))

@@ -18,8 +18,8 @@ object MetaRuleInject {
               val table = metaArgs.get.zip(args).toMap
               def substArgs(e: Expr): Expr = e match {
                 case id: Identifier                => table.getOrElse(id, id)
-                case FirstOf(lhs, rhs)             => FirstOf(substArgs(lhs), substArgs(rhs))
-                case Sequence(lhs, rhs)            => Sequence(substArgs(lhs), substArgs(rhs))
+                case FirstOf(exps)                 => FirstOf(exps.map(substArgs))
+                case Sequence(exps)                => Sequence(exps.map(substArgs))
                 case Capture(x)                    => Capture(substArgs(x))
                 case Optional(x)                   => Optional(substArgs(x))
                 case ZeroOrMore(x)                 => ZeroOrMore(substArgs(x))
@@ -32,8 +32,8 @@ object MetaRuleInject {
               substArgs(metaBody)
             case None => ???
           }
-        case FirstOf(lhs, rhs)  => FirstOf(substitute(lhs), substitute(rhs))
-        case Sequence(lhs, rhs) => Sequence(substitute(lhs), substitute(rhs))
+        case FirstOf(exps)      => FirstOf(exps.map(substitute))
+        case Sequence(exps)     => Sequence(exps.map(substitute))
         case Capture(e)         => Capture(substitute(e))
         case Optional(e)        => Optional(substitute(e))
         case ZeroOrMore(e)      => ZeroOrMore(substitute(e))
@@ -45,7 +45,29 @@ object MetaRuleInject {
     }
 
     result.map{
-      case RuleExpr(name, None, typ, body) => RuleExpr(name, None, typ, substitute(body))
+      case RuleExpr(name, None, typ, body) =>
+        def squashSeq(e: Expr): Expr = e match {
+          case FirstOf(exps) =>
+            val r = exps.map(squashSeq).foldRight(Seq.empty[Expr]) {
+              case (FirstOf(es), rest) => es ++ rest
+              case (exp, acc) => exp +: acc
+            }
+            FirstOf(r)
+          case Sequence(exps) =>
+            val r = exps.map(squashSeq).foldRight(Seq.empty[Expr]) {
+              case (Sequence(es), rest) => es ++ rest
+              case (exp, acc) => exp +: acc
+            }
+            Sequence(r)
+          case Capture(e)         => Capture(squashSeq(e))
+          case Optional(e)        => Optional(squashSeq(e))
+          case ZeroOrMore(e)      => ZeroOrMore(squashSeq(e))
+          case OneOrMore(e)       => OneOrMore(squashSeq(e))
+          case Test(e)            => Test(squashSeq(e))
+          case Negate(e)          => Negate(squashSeq(e))
+          case t                  => t
+        }
+        RuleExpr(name, None, typ, squashSeq(substitute(body)))
       case _ => ???
     }
   }
